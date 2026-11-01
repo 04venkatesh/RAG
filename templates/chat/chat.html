@@ -1,0 +1,168 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}{{ active_session.title }} — RAG Assistant{% endblock %}
+{% block body_class %}chat-layout-active{% endblock %}
+
+{% block content %}
+<div class="chat-app-wrapper" data-session-id="{{ active_session.id }}">
+    <!-- Left Sidebar: Conversations & Knowledge Base -->
+    <aside class="chat-sidebar">
+        <div class="sidebar-header">
+            <a href="{% url 'chat:new_chat' %}" class="btn btn-new-chat">
+                <span class="plus-icon">+</span>
+                <span>New Chat</span>
+            </a>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Recent Conversations</div>
+            <div class="conversation-list">
+                {% for s in sessions %}
+                    <div class="conversation-item {% if s.id == active_session.id %}active{% endif %}">
+                        <a href="{% url 'chat:session_detail' s.id %}" class="conv-link">
+                            <span class="chat-bubble-icon">💬</span>
+                            <span class="conv-title" title="{{ s.title }}">{{ s.title }}</span>
+                        </a>
+                        <form method="post" action="{% url 'chat:delete_chat' s.id %}" class="delete-chat-form" onsubmit="return confirm('Delete this conversation?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-delete-conv" title="Delete chat">×</button>
+                        </form>
+                    </div>
+                {% empty %}
+                    <div class="sidebar-empty">No conversations yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-section-title">Knowledge Base</div>
+            <div class="kb-summary">
+                <div class="kb-stat">
+                    <span>Indexed Documents:</span>
+                    <strong>{{ documents.count }}</strong>
+                </div>
+                <div class="kb-links">
+                    <a href="{% url 'documents:list' %}" class="kb-link">📚 View All Docs</a>
+                    <a href="{% url 'documents:upload' %}" class="kb-link">+ Upload More</a>
+                </div>
+            </div>
+            <div class="sidebar-user-pill">
+                <div class="user-avatar">{{ user.username|make_list|first|upper }}</div>
+                <div class="user-details">
+                    <span class="user-name">{{ user.username }}</span>
+                    <span class="system-status">● Local System Ready</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Chat Workspace -->
+    <section class="chat-main">
+        <div class="chat-header">
+            <div class="chat-header-info">
+                <h2 class="active-chat-title" id="chat-title">{{ active_session.title }}</h2>
+                <div class="rag-pipeline-indicator">
+                    <span class="rag-pill">Sentence-Transformers (384-d)</span>
+                    <span class="rag-arrow">→</span>
+                    <span class="rag-pill">ChromaDB (Cosine)</span>
+                    <span class="rag-arrow">→</span>
+                    <span class="rag-pill">Ollama (Mistral)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-messages-scroll" id="chat-messages-container">
+            <div class="chat-messages" id="chat-messages">
+                {% for msg in chat_messages %}
+                    <div class="message-row message-{{ msg.role }}">
+                        <div class="message-avatar">
+                            {% if msg.role == 'user' %}
+                                <div class="avatar-icon user-icon">{{ user.username|make_list|first|upper }}</div>
+                            {% else %}
+                                <div class="avatar-icon ai-icon">🦙</div>
+                            {% endif %}
+                        </div>
+                        <div class="message-content-wrapper">
+                            <div class="message-sender">
+                                {% if msg.role == 'user' %}You{% else %}RAG Assistant (Mistral){% endif %}
+                            </div>
+                            <div class="message-bubble">
+                                <div class="message-text">{{ msg.content|linebreaksbr }}</div>
+
+                                {% if msg.role == 'assistant' and msg.sources %}
+                                    <div class="sources-container">
+                                        <details class="sources-details">
+                                            <summary class="sources-summary">
+                                                <span>📚 Verified Sources ({{ msg.sources|length }})</span>
+                                            </summary>
+                                            <div class="sources-list">
+                                                {% for src in msg.sources %}
+                                                    <div class="source-card">
+                                                        <div class="source-card-header">
+                                                            <strong class="source-doc-name">{{ src.document_name }}</strong>
+                                                            <div class="source-tags">
+                                                                {% if src.page %}
+                                                                    <span class="source-tag">Page {{ src.page }}</span>
+                                                                {% endif %}
+                                                                <span class="source-tag score-tag">Similarity: {{ src.score }}</span>
+                                                            </div>
+                                                        </div>
+                                                        {% if src.snippet %}
+                                                            <p class="source-snippet">"{{ src.snippet }}"</p>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="message-timestamp">{{ msg.created_at|date:"H:i" }}</div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="chat-welcome-card" id="chat-welcome">
+                        <div class="welcome-icon">🧠</div>
+                        <h3>Local Retrieval-Augmented Generation</h3>
+                        <p>Ask questions about your uploaded documents. Your queries are embedded locally using <strong>all-MiniLM-L6-v2</strong>, retrieved from <strong>ChromaDB</strong>, and synthesized by <strong>Mistral via Ollama</strong>.</p>
+                        <div class="welcome-hints">
+                            <div class="hint-item">"What are the main concepts in the uploaded research paper?"</div>
+                            <div class="hint-item">"Compare the key approaches across my uploaded documents."</div>
+                            <div class="hint-item">"Summarize the structured data in my uploaded spreadsheet."</div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Sticky Input Area -->
+        <div class="chat-input-area">
+            <form id="chat-form" class="chat-form">
+                {% csrf_token %}
+                <div class="input-box-wrapper">
+                    <textarea 
+                        id="message-input" 
+                        class="chat-textarea" 
+                        placeholder="Ask a question about your documents... (Press Enter to send, Shift+Enter for newline)"
+                        rows="1"
+                        required
+                    ></textarea>
+                    <button type="submit" id="send-button" class="btn-send" title="Send message">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-disclaimer">
+                    <span>🔒 Local & Private • Strict User Isolation • Cosine Similarity Retrieval • No Cloud LLM APIs</span>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/chat.js"></script>
+{% endblock %}

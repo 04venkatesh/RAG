@@ -1,0 +1,120 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}Upload Documents{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>Upload Documents</h1>
+            <p class="subtitle">Select one or multiple documents to index into your private local ChromaDB collection.</p>
+        </div>
+        <a href="{% url 'documents:list' %}" class="btn btn-secondary">← Back to Documents</a>
+    </div>
+
+    <div class="upload-grid">
+        <div class="card upload-card">
+            <form method="post" enctype="multipart/form-data" id="upload-form">
+                {% csrf_token %}
+                {% if form.errors %}
+                    <div class="form-errors">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <p class="error-msg">{{ error }}</p>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="dropzone" id="dropzone">
+                    <div class="dropzone-icon">📁</div>
+                    <label for="{{ form.files.id_for_label }}" class="dropzone-label">
+                        <strong>Click to select files</strong> or drag and drop here
+                    </label>
+                    <p class="dropzone-sub">Supported formats: PDF, DOCX, TXT, CSV, XLSX (Max 20MB per file)</p>
+                    {{ form.files }}
+                </div>
+
+                <div id="file-preview-list" class="file-preview-list"></div>
+
+                <div class="form-actions mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg" id="submit-btn">
+                        <span class="btn-text">Start Local Ingestion</span>
+                        <span class="btn-spinner hidden"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card info-card">
+            <h3>How Local Ingestion Works</h3>
+            <div class="pipeline-steps">
+                <div class="step-item">
+                    <span class="step-num">1</span>
+                    <div class="step-desc">
+                        <strong>Text Extraction</strong>
+                        <p>PyMuPDF extracts page text for PDFs, python-docx parses paragraphs & tables, and openpyxl/csv parses tabular data.</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <span class="step-num">2</span>
+                    <div class="step-desc">
+                        <strong>Semantic Chunking</strong>
+                        <p>Documents are split respecting paragraph and sentence boundaries. For CSV/XLSX, 1 complete row = 1 logical chunk.</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <span class="step-num">3</span>
+                    <div class="step-desc">
+                        <strong>Local Embeddings</strong>
+                        <p>Sentence Transformers (all-MiniLM-L6-v2) generates 384-dimensional dense vectors entirely on your local machine.</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <span class="step-num">4</span>
+                    <div class="step-desc">
+                        <strong>ChromaDB Storage & Isolation</strong>
+                        <p>Vectors are saved with strict user_id metadata to guarantee absolute user isolation during retrieval.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('file-input') || document.querySelector('input[type="file"]');
+    const previewList = document.getElementById('file-preview-list');
+    const form = document.getElementById('upload-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const btnSpinner = submitBtn.querySelector('.btn-spinner');
+
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            previewList.innerHTML = '';
+            if (this.files.length > 0) {
+                const title = document.createElement('h4');
+                title.textContent = `Selected Files (${this.files.length}):`;
+                previewList.appendChild(title);
+
+                for (let i = 0; i < this.files.length; i++) {
+                    const f = this.files[i];
+                    const item = document.createElement('div');
+                    item.className = 'file-preview-item';
+                    item.innerHTML = `<span>📄 <strong>${f.name}</strong></span> <span class="file-size">(${(f.size / (1024*1024)).toFixed(2)} MB)</span>`;
+                    previewList.appendChild(item);
+                }
+            }
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', function() {
+            btnText.textContent = 'Processing & Indexing...';
+            btnSpinner.classList.remove('hidden');
+            submitBtn.disabled = true;
+        });
+    }
+</script>
+{% endblock %}

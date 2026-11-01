@@ -1,0 +1,84 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}My Documents{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>Document Knowledge Base</h1>
+            <p class="subtitle">Uploaded files are chunked, embedded locally, and stored in ChromaDB for semantic retrieval.</p>
+        </div>
+        <a href="{% url 'documents:upload' %}" class="btn btn-primary">+ Upload New Documents</a>
+    </div>
+
+    {% if documents %}
+        <div class="table-card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Type</th>
+                        <th>Size</th>
+                        <th>Status</th>
+                        <th>Chunks in ChromaDB</th>
+                        <th>Uploaded At</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'documents:detail' doc.id %}" class="doc-title-link">
+                                    <strong>{{ doc.original_filename }}</strong>
+                                </a>
+                                {% if doc.status == 'failed' and doc.error_message %}
+                                    <div class="doc-error-hint">{{ doc.error_message }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge badge-type">{{ doc.file_type|upper }}</span>
+                            </td>
+                            <td>{{ doc.file_size_formatted }}</td>
+                            <td>
+                                {% if doc.status == 'processed' %}
+                                    <span class="badge badge-success">Processed</span>
+                                {% elif doc.status == 'processing' %}
+                                    <span class="badge badge-warning">Processing...</span>
+                                {% elif doc.status == 'failed' %}
+                                    <span class="badge badge-danger">Failed</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if doc.status == 'processed' %}
+                                    <span class="chunk-count-badge">{{ doc.chunk_count }} chunks</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ doc.created_at|date:"M d, Y H:i" }}</td>
+                            <td class="text-right actions-cell">
+                                <a href="{% url 'documents:detail' doc.id %}" class="btn btn-sm btn-outline">View Chunks</a>
+                                <form method="post" action="{% url 'documents:delete' doc.id %}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete {{ doc.original_filename }}? This will permanently delete its vectors from ChromaDB and all database records.');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state-card">
+            <div class="empty-icon">📄</div>
+            <h3>No Documents Uploaded Yet</h3>
+            <p>Upload PDFs, Word docs, plain text files, or CSV/XLSX spreadsheets to start asking questions against your private knowledge base.</p>
+            <a href="{% url 'documents:upload' %}" class="btn btn-primary mt-3">Upload Your First Document</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

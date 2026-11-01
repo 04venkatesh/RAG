@@ -1,0 +1,92 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}{{ document.original_filename }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1>{{ document.original_filename }}</h1>
+            <p class="subtitle">Document Ingestion Details & ChromaDB Vector Chunks</p>
+        </div>
+        <div class="header-actions">
+            <a href="{% url 'documents:list' %}" class="btn btn-secondary">← Back to List</a>
+            <form method="post" action="{% url 'documents:delete' document.id %}" class="inline-form" onsubmit="return confirm('Delete this document and all its vectors from ChromaDB?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Delete Document</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="meta-grid">
+        <div class="meta-card">
+            <span class="meta-label">File Type</span>
+            <span class="meta-value badge badge-type">{{ document.file_type|upper }}</span>
+        </div>
+        <div class="meta-card">
+            <span class="meta-label">File Size</span>
+            <span class="meta-value">{{ document.file_size_formatted }}</span>
+        </div>
+        <div class="meta-card">
+            <span class="meta-label">Ingestion Status</span>
+            <span class="meta-value">
+                {% if document.status == 'processed' %}
+                    <span class="badge badge-success">Processed</span>
+                {% elif document.status == 'processing' %}
+                    <span class="badge badge-warning">Processing</span>
+                {% elif document.status == 'failed' %}
+                    <span class="badge badge-danger">Failed</span>
+                {% else %}
+                    <span class="badge badge-secondary">Pending</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="meta-card">
+            <span class="meta-label">Indexed Chunks</span>
+            <span class="meta-value font-bold">{{ document.chunk_count }}</span>
+        </div>
+    </div>
+
+    {% if document.status == 'failed' and document.error_message %}
+        <div class="alert alert-danger mt-4">
+            <h4>Ingestion Failure Details:</h4>
+            <p>{{ document.error_message }}</p>
+        </div>
+    {% endif %}
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3>Extracted Chunks & ChromaDB Vector IDs</h3>
+            <span class="text-muted">Showing {{ chunks.count }} chunk records</span>
+        </div>
+        <div class="chunk-list">
+            {% for chunk in chunks %}
+                <div class="chunk-item">
+                    <div class="chunk-item-header">
+                        <div class="chunk-badges">
+                            <span class="chunk-idx">Chunk #{{ chunk.chunk_index }}</span>
+                            {% if chunk.page_number %}
+                                <span class="badge badge-outline">Page {{ chunk.page_number }}</span>
+                            {% endif %}
+                            {% if chunk.metadata.sheet_name %}
+                                <span class="badge badge-outline">Sheet: {{ chunk.metadata.sheet_name }}</span>
+                            {% endif %}
+                            {% if chunk.metadata.row_number %}
+                                <span class="badge badge-outline">Row: {{ chunk.metadata.row_number }}</span>
+                            {% endif %}
+                        </div>
+                        <code class="chroma-id-tag">Chroma ID: {{ chunk.chroma_id }}</code>
+                    </div>
+                    <div class="chunk-content-preview">
+                        <pre>{{ chunk.content }}</pre>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="p-4 text-center text-muted">
+                    No chunk records found for this document.
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

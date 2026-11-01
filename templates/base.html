@@ -1,0 +1,56 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}Local RAG Chat{% endblock %} | Offline AI Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <header class="app-header">
+        <div class="header-container">
+            <a href="{% url 'chat:chat' %}" class="logo">
+                <span class="logo-badge">LOCAL RAG</span>
+                <span class="logo-title">ChromaDB Assistant</span>
+            </a>
+
+            <nav class="nav-links">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'chat:chat' %}" class="nav-link {% if request.resolver_match.app_name == 'chat' %}active{% endif %}">Chat</a>
+                    <a href="{% url 'documents:list' %}" class="nav-link {% if request.resolver_match.app_name == 'documents' %}active{% endif %}">Documents</a>
+                    <a href="{% url 'documents:upload' %}" class="nav-link upload-btn">+ Upload</a>
+                    <div class="user-menu">
+                        <span class="username">{{ user.username }}</span>
+                        <a href="{% url 'accounts:logout' %}" class="logout-link">Logout</a>
+                    </div>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}" class="nav-link">Log In</a>
+                    <a href="{% url 'accounts:register' %}" class="nav-link register-btn">Register</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    {% if messages %}
+        <div class="messages-container">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    <span>{{ message }}</span>
+                    <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
